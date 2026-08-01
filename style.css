@@ -206,7 +206,7 @@ input[type='checkbox'] { accent-color: var(--line); width: 16px; height: 16px; m
 .splash-bar-fill { height: 100%; width: 0%; background: var(--line); animation: fill-bar 2.2s steps(24) forwards; }
 @keyframes fill-bar { to { width: 100%; } }
 
-.player-div { background: transparent; border: none; }
+.player-div { background: transparent; border: none; pointer-events: none; }
 .player-bounce { width: 100%; height: 100%; animation: pjump .9s steps(3) infinite; }
 @keyframes pjump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 .player-ring {

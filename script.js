@@ -159,7 +159,7 @@
     popupAnchor: [0, -42],
   });
 
-  const player = L.marker([0, 0], { icon: playerIcon, zIndexOffset: 1000 });
+  const player = L.marker([0, 0], { icon: playerIcon, zIndexOffset: 1000, interactive: false });
   const accuracy = L.circle([0, 0], {
     radius: 0,
     color: 'rgb(34, 197, 94)',
@@ -183,9 +183,10 @@
       `<div class='pixel-popup'>${label}<span class='dim'>${latlng.lat.toFixed(4)} , ${latlng.lng.toFixed(4)}</span></div>`,
       { closeButton: true, offset: [0, -6] }
     );
-    if (firstFix || open) {
+    if ((firstFix && fly) || open) {
       player.openPopup();
       firstFix = false;
+      setTimeout(() => player.closePopup(), 4000);
     }
     hasPlayer = true;
     updateHud(latlng);
@@ -234,8 +235,8 @@
   els.btnLocate.addEventListener('click', locateMe);
 
   map.on('click', (e) => {
-    placePlayer(e.latlng, 0, 'YOU ARE HERE', true, true);
-    showToast(`YOU ARE AT ${e.latlng.lat.toFixed(4)} , ${e.latlng.lng.toFixed(4)}`, 3200);
+    placePlayer(e.latlng, 0, 'YOU ARE HERE', false, false);
+    map.panTo(e.latlng, { animate: true });
   });
 
   let toastTimer;
@@ -328,11 +329,11 @@
   }
 
   const RANK_COLORS = [
-    'rgb(251, 191, 36)',
-    'rgb(0, 191, 255)',
-    'rgb(209, 250, 229)',
-    'rgb(148, 163, 184)',
-    'rgb(100, 116, 139)',
+    'rgb(0, 0, 0)',
+    'rgb(0, 0, 0)',
+    'rgb(0, 0, 0)',
+    'rgb(0, 0, 0)',
+    'rgb(0, 0, 0)',
   ];
   const RANK_PX = [9, 9, 8, 8, 7];
 
