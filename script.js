@@ -70,7 +70,7 @@
   }).addTo(map);
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
-  L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
+  L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
   function drawPixel(canvas, img, scale, posterize) {
     const w = canvas.width;
@@ -234,8 +234,8 @@
   els.btnLocate.addEventListener('click', locateMe);
 
   map.on('click', (e) => {
-    placePlayer(e.latlng, 0, 'MARKER', false, true);
-    showToast(`MARKER @ ${e.latlng.lat.toFixed(4)} , ${e.latlng.lng.toFixed(4)}`, 3200);
+    placePlayer(e.latlng, 0, 'YOU ARE HERE', true, true);
+    showToast(`YOU ARE AT ${e.latlng.lat.toFixed(4)} , ${e.latlng.lng.toFixed(4)}`, 3200);
   });
 
   let toastTimer;
@@ -321,24 +321,96 @@
     });
   }
 
+  const RANK_COLORS = [
+    'rgb(251, 191, 36)',
+    'rgb(0, 191, 255)',
+    'rgb(209, 250, 229)',
+    'rgb(148, 163, 184)',
+    'rgb(100, 116, 139)',
+  ];
+  const RANK_PX = [9, 9, 8, 8, 7];
+
+  function placeIcon(color) {
+    return L.divIcon({
+      className: 'place-pixel-icon',
+      html: `<div style='--pc:${color}'></div>`,
+      iconSize: [5, 5],
+      iconAnchor: [2, 2],
+    });
+  }
+
+  function pixelLabelCanvas(name, rank) {
+    const color = RANK_COLORS[rank] || RANK_COLORS[3];
+    const fontSize = RANK_PX[rank] || 8;
+    const probe = document.createElement('canvas');
+    const pctx = probe.getContext('2d');
+    const font = `${fontSize}px 'Press Start 2P', monospace`;
+    pctx.font = font;
+    const textW = Math.ceil(pctx.measureText(name).width);
+    const padX = 6;
+    const padY = 4;
+    const pointerH = 4;
+    const boxH = fontSize + padY * 2;
+    const lowW = textW + padX * 2;
+    const lowH = boxH + pointerH;
+    const low = document.createElement('canvas');
+    low.width = lowW;
+    low.height = lowH;
+    const lx = low.getContext('2d');
+    lx.fillStyle = 'rgb(10, 14, 26)';
+    lx.fillRect(0, 0, lowW, boxH);
+    lx.strokeStyle = color;
+    lx.lineWidth = 1;
+    lx.strokeRect(0.5, 0.5, lowW - 1, boxH - 1);
+    lx.font = font;
+    lx.textBaseline = 'top';
+    lx.fillStyle = color;
+    lx.fillText(name, padX, padY + 1);
+    const pW = pointerH + 2;
+    lx.fillStyle = color;
+    lx.fillRect(Math.floor((lowW - pW) / 2), boxH, pW, pointerH);
+    const scale = 2;
+    const out = document.createElement('canvas');
+    out.width = lowW * scale;
+    out.height = lowH * scale;
+    out.className = 'pixel-label';
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(low, 0, 0, out.width, out.height);
+    return out;
+  }
+
   function addPlaceLabel(latlng, name, rank) {
-    const marker = L.marker(latlng, { interactive: false, keyboard: false });
-    marker.bindTooltip(name, {
+    const marker = L.marker(latlng, {
+      interactive: false,
+      keyboard: false,
+      icon: placeIcon(RANK_COLORS[rank] || RANK_COLORS[3]),
+    });
+    marker.bindTooltip(pixelLabelCanvas(name, rank), {
       permanent: true,
       direction: 'top',
       className: 'place-tooltip pl-' + rank,
-      offset: [0, -2],
+      offset: [0, 3],
     });
     return marker;
   }
 
+  let placesData = null;
+  function redrawPlaces() {
+    if (placesData) renderPlaces(placesData.json, placesData.center);
+  }
+
   function renderPlaces(json, center) {
+    placesData = { json: json, center: center };
     const items = [];
     for (const el of json.elements || []) {
       if (!el.tags) continue;
       const name = el.tags['name:en'] || el.tags.name;
       if (!name) continue;
-      const latlng = el.lat !== undefined ? [el.lat, el.lon] : [el.center.lat, el.center.lon];
+      const hasPt = el.lat !== undefined && el.lat !== null;
+      const hasCenter = el.center && el.center.lat !== undefined && el.center.lon !== undefined;
+      if (!hasPt && !hasCenter) continue;
+      const latlng = hasPt ? [el.lat, el.lon] : [el.center.lat, el.center.lon];
       const rank = placeRank(el.tags);
       items.push({ name: name, rank: rank, dist: map.distance(center, latlng), latlng: latlng });
     }
@@ -400,4 +472,8 @@
   refreshHud();
   schedulePlaces();
   locateMe();
+
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load(`9px 'Press Start 2P'`).then(redrawPlaces).catch(() => {});
+  }
 })();
