@@ -234,11 +234,6 @@
 
   els.btnLocate.addEventListener('click', locateMe);
 
-  map.on('click', (e) => {
-    placePlayer(e.latlng, 0, 'YOU ARE HERE', false, false);
-    map.panTo(e.latlng, { animate: true });
-  });
-
   let toastTimer;
   function showToast(msg, ms) {
     els.toast.textContent = msg;
