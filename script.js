@@ -472,7 +472,7 @@
         }
         return;
       }
-      fetchWithTimeout(targets[i], opts, 25000)
+      fetchWithTimeout(targets[i], opts, 12000)
         .then((res) => {
           if (!res.ok) throw new Error('bad status');
           return res.json();
@@ -488,19 +488,16 @@
     };
     attempt(0, 0);
 
-    delay(2500).then(() => {
-      if (resolved || signal.aborted) return;
-      const url = `https://photon.komoot.io/reverse?lon=${center.lng}&lat=${center.lat}&limit=40&lang=en&layer=locality&layer=city&layer=district&layer=county&layer=state&layer=country&layer=other`;
-      fetchWithTimeout(url, { signal: signal }, 15000)
-        .then((res) => {
-          if (!res.ok) throw new Error('bad status');
-          return res.json();
-        })
-        .then((json) => {
-          finish(() => renderPhotonPlaces(json, center));
-        })
-        .catch(() => {});
-    });
+    const url = `https://photon.komoot.io/reverse?lon=${center.lng}&lat=${center.lat}&limit=40&lang=en&layer=locality&layer=city&layer=district&layer=county&layer=state&layer=country&layer=other`;
+    fetchWithTimeout(url, { signal: signal }, 15000)
+      .then((res) => {
+        if (!res.ok) throw new Error('bad status');
+        return res.json();
+      })
+      .then((json) => {
+        finish(() => renderPhotonPlaces(json, center));
+      })
+      .catch(() => {});
   }
 
   function schedulePlaces() {
@@ -509,7 +506,7 @@
       if (placesLayer) placesLayer.clearLayers();
       return;
     }
-    placesTimer = setTimeout(() => loadPlaces(map.getCenter(), map.getZoom()), 700);
+    placesTimer = setTimeout(() => loadPlaces(map.getCenter(), map.getZoom()), 300);
   }
   map.on('moveend', schedulePlaces);
 
