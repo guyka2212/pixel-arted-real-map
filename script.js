@@ -356,10 +356,9 @@
     const textW = Math.ceil(pctx.measureText(name).width);
     const padX = 4;
     const padY = 2;
-    const pointerH = 4;
     const boxH = fontSize + padY * 2;
     const lowW = textW + padX * 2;
-    const lowH = boxH + pointerH;
+    const lowH = boxH;
     const low = document.createElement('canvas');
     low.width = lowW;
     low.height = lowH;
@@ -371,11 +370,6 @@
     lx.fillText(name, textX + 1, padY + 1);
     lx.fillStyle = color;
     lx.fillText(name, textX, padY);
-    const pW = pointerH;
-    lx.fillStyle = 'rgba(0, 0, 0, .85)';
-    lx.fillRect(Math.floor((lowW - pW) / 2) + 1, boxH + 1, pW, pointerH);
-    lx.fillStyle = color;
-    lx.fillRect(Math.floor((lowW - pW) / 2), boxH, pW, pointerH);
     const scale = 2;
     const out = document.createElement('canvas');
     out.width = lowW * scale;
@@ -388,16 +382,17 @@
   }
 
   function addPlaceLabel(latlng, name, rank) {
+    const label = pixelLabelCanvas(name, rank);
     const marker = L.marker(latlng, {
       interactive: false,
       keyboard: false,
       icon: placeIcon(RANK_COLORS[rank] || RANK_COLORS[3]),
     });
-    marker.bindTooltip(pixelLabelCanvas(name, rank), {
+    marker.bindTooltip(label, {
       permanent: true,
       direction: 'top',
       className: 'place-tooltip pl-' + rank,
-      offset: [0, 3],
+      offset: [1, Math.round(label.height / 2) + 6.5],
     });
     return marker;
   }
