@@ -235,6 +235,29 @@ input[type='checkbox'] { accent-color: var(--line); width: 16px; height: 16px; m
 .leaflet-popup-close-button { color: var(--line) !important; font-family: inherit; font-size: 16px !important; }
 .pixel-popup .dim { display: block; margin-top: 4px; }
 
+.place-tooltip {
+  background: rgba(10, 14, 26, .82);
+  border: 2px solid var(--line-dim);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 7px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, .4);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.place-tooltip.leaflet-tooltip-top:before,
+.place-tooltip.leaflet-tooltip-bottom:before {
+  border: none;
+}
+.place-tooltip.pl-0 { font-size: 10px; color: var(--warn); border-color: var(--warn); }
+.place-tooltip.pl-1 { font-size: 9px; color: var(--cyan); border-color: var(--cyan); }
+.place-tooltip.pl-2 { font-size: 8px; color: var(--text); border-color: var(--line-dim); }
+.place-tooltip.pl-3 { font-size: 7px; color: rgb(148, 163, 184); border-color: rgb(51, 65, 85); }
+.place-tooltip.pl-4 { font-size: 7px; color: rgb(100, 116, 139); border-color: rgb(51, 65, 85); }
+
 @media (max-width: 560px) {
   .pbtn-txt { display: none; }
   .hud-coords { font-size: 8px; }

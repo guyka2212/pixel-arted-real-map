@@ -275,6 +275,108 @@
   els.btnSettings.addEventListener('click', () => els.settings.classList.toggle('hidden'));
   els.btnCloseSettings.addEventListener('click', () => els.settings.classList.add('hidden'));
 
+  const PLACE_RANK = {
+    city: 0,
+    town: 1,
+    village: 2,
+    suburb: 3,
+    neighbourhood: 3,
+    quarter: 3,
+    hamlet: 4,
+    isolated_dwelling: 4,
+  };
+
+  const OVERPASS_URLS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+  ];
+
+  let placesLayer = null;
+  let placesTimer = null;
+  let placesAbort = null;
+
+  function fetchWithTimeout(url, opts, ms) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout')), ms);
+      fetch(url, opts)
+        .then((res) => { clearTimeout(timer); resolve(res); })
+        .catch((err) => { clearTimeout(timer); reject(err); });
+    });
+  }
+
+  function addPlaceLabel(latlng, name, rank) {
+    const marker = L.marker(latlng, { interactive: false, keyboard: false });
+    marker.bindTooltip(name, {
+      permanent: true,
+      direction: 'top',
+      className: 'place-tooltip pl-' + rank,
+      offset: [0, -2],
+    });
+    return marker;
+  }
+
+  function renderPlaces(json, center) {
+    const items = [];
+    for (const el of json.elements || []) {
+      if (!el.tags) continue;
+      const name = el.tags['name:en'] || el.tags.name;
+      if (!name) continue;
+      const latlng = el.lat !== undefined ? [el.lat, el.lon] : [el.center.lat, el.center.lon];
+      const rank = PLACE_RANK[el.tags.place] === undefined ? 4 : PLACE_RANK[el.tags.place];
+      items.push({ name: name, rank: rank, dist: map.distance(center, latlng), latlng: latlng });
+    }
+    items.sort((a, b) => (a.rank - b.rank) || (a.dist - b.dist));
+    if (placesLayer) placesLayer.clearLayers();
+    placesLayer = L.layerGroup().addTo(map);
+    const seen = new Set();
+    for (const item of items.slice(0, 25)) {
+      const key = item.rank + ':' + item.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      placesLayer.addLayer(addPlaceLabel(item.latlng, item.name, item.rank));
+    }
+  }
+
+  function loadPlaces(center, zoom) {
+    if (zoom < 4) return;
+    if (placesAbort) placesAbort.abort();
+    placesAbort = new AbortController();
+    const radius = Math.round(Math.max(2000, Math.min(400000, 400000 / Math.pow(2, zoom - 4))));
+    const query = `[out:json][timeout:20];(node['place'~'(city|town|village|hamlet|suburb|neighbourhood|quarter)'](around:${radius},${center.lat},${center.lng});way['place'~'(city|town|village)'](around:${radius},${center.lat},${center.lng}););out center tags;`;
+    const opts = { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: placesAbort.signal };
+    const targets = [OVERPASS_URLS[0], OVERPASS_URLS[0], OVERPASS_URLS[0]].concat(OVERPASS_URLS.slice(1));
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+    const attempt = (i) => {
+      if (i >= targets.length) return;
+      fetchWithTimeout(targets[i], opts, 15000)
+        .then((res) => {
+          if (!res.ok) throw new Error('bad status');
+          return res.json();
+        })
+        .then((json) => {
+          if (!placesAbort.signal.aborted) renderPlaces(json, center);
+        })
+        .catch((err) => {
+          if (!placesAbort.signal.aborted && err.name !== 'AbortError') {
+            delay(2000).then(() => attempt(i + 1));
+          }
+        });
+    };
+    attempt(0);
+  }
+
+  function schedulePlaces() {
+    clearTimeout(placesTimer);
+    if (map.getZoom() < 4) {
+      if (placesLayer) placesLayer.clearLayers();
+      return;
+    }
+    placesTimer = setTimeout(() => loadPlaces(map.getCenter(), map.getZoom()), 700);
+  }
+  map.on('moveend', schedulePlaces);
+
   refreshHud();
+  schedulePlaces();
   locateMe();
 })();
