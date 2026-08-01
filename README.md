@@ -10,6 +10,11 @@ The project is hosted on GitHub Pages:
 
 **https://guyka2212.github.io/pixel-arted-real-map/**
 
+> GitHub Pages is a one-time manual step (the API token used in Codespaces
+> can't change repo settings). To enable it:
+> **Repo → Settings → Pages → Source: "Deploy from a branch" → main / (root) → Save.**
+> The site goes live within a minute or two.
+
 ## How it works
 
 - Real map tiles are loaded from [OpenStreetMap](https://www.openstreetmap.org/).
