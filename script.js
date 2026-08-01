@@ -1,32 +1,31 @@
 (() => {
   'use strict';
 
-  const TILE_SIZE = 256;
   const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   const OSM_SUBDOMAINS = 'abc';
 
+  const q = (sel) => document.querySelector(sel);
+
   const els = {
-    map: document.getElementById('map'),
-    lat: document.getElementById('hud-lat'),
-    lng: document.getElementById('hud-lng'),
-    zoom: document.getElementById('hud-zoom'),
-    progressBar: document.getElementById('hud-progress-bar'),
+    map: q('.map'),
+    lat: q('.hud-lat'),
+    lng: q('.hud-lng'),
+    zoom: q('.hud-zoom'),
     body: document.body,
-    toast: document.getElementById('toast'),
-    btnLocate: document.getElementById('btn-locate'),
-    btnSettings: document.getElementById('btn-settings'),
-    btnCloseSettings: document.getElementById('btn-close-settings'),
-    settings: document.getElementById('settings'),
-    scaleEl: document.getElementById('pixel-scale'),
-    scaleVal: document.getElementById('pixel-scale-val'),
-    levelsEl: document.getElementById('pixel-levels'),
-    levelsVal: document.getElementById('pixel-levels-val'),
-    scanlines: document.getElementById('scanlines'),
-    splash: document.getElementById('splash'),
+    toast: q('.toast'),
+    btnLocate: q('.btn-locate'),
+    btnSettings: q('.btn-settings'),
+    btnCloseSettings: q('.btn-close-settings'),
+    settings: q('.settings'),
+    scaleEl: q('.pixel-scale'),
+    scaleVal: q('.pixel-scale-val'),
+    levelsEl: q('.pixel-levels'),
+    levelsVal: q('.pixel-levels-val'),
+    scanlines: q('.scanlines'),
+    splash: q('.splash'),
   };
 
-  /* ---------------- map ---------------- */
-  const map = L.map('map', {
+  const map = L.map(els.map, {
     zoomControl: false,
     attributionControl: false,
     minZoom: 2,
@@ -34,7 +33,6 @@
     worldCopyJump: true,
   }).setView([20, 0], 2);
 
-  /* ---------------- pixel tile layer ---------------- */
   const PixelTileLayer = L.TileLayer.extend({
     createTile(coords, done) {
       const size = this.getTileSize();
@@ -68,13 +66,12 @@
     crossOrigin: true,
     pixelScale: 5,
     posterize: 32,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    attribution: '&copy; <a href=\'https://www.openstreetmap.org/copyright\'>OpenStreetMap</a> contributors',
   }).addTo(map);
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
   L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
-  /* downsample + posterize an image into the tile canvas */
   function drawPixel(canvas, img, scale, posterize) {
     const w = canvas.width;
     const h = canvas.height;
@@ -99,9 +96,7 @@
           d[i + 2] = Math.floor(d[i + 2] / step) * step;
         }
         mctx.putImageData(data, 0, 0);
-      } catch (e) {
-        /* canvas tainted - skip posterize */
-      }
+      } catch (e) {}
     }
 
     const ctx = canvas.getContext('2d');
@@ -109,7 +104,6 @@
     ctx.drawImage(mini, 0, 0, w, h);
   }
 
-  /* ---------------- pixel pin icon ---------------- */
   function pinPath(ctx, cx, cy, r, tipY) {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -134,16 +128,16 @@
     const r = pixels * 0.3;
     const tipY = pixels - 2;
 
-    lx.fillStyle = '#111';
+    lx.fillStyle = 'rgb(17, 17, 17)';
     pinPath(lx, cx, cy, r + 0.9, tipY + 0.6);
     lx.fillStyle = color;
     pinPath(lx, cx, cy, r, tipY);
-    lx.fillStyle = '#000';
+    lx.fillStyle = 'rgb(0, 0, 0)';
     lx.beginPath();
     lx.arc(cx, cy, r * 0.42, 0, Math.PI * 2);
     lx.closePath();
     lx.fill();
-    lx.fillStyle = 'rgba(255,255,255,.6)';
+    lx.fillStyle = 'rgba(255, 255, 255, .6)';
     lx.fillRect(cx - r * 0.7, cy - r * 0.55, r * 0.45, r * 0.3);
 
     const out = document.createElement('canvas');
@@ -155,14 +149,11 @@
     return out.toDataURL();
   }
 
-  const PIN = makePinDataUrl(16, '#ff4d5a');
+  const PIN = makePinDataUrl(16, 'rgb(255, 77, 90)');
 
   const playerIcon = L.divIcon({
     className: 'player-div',
-    html:
-      '<div class="player-ring"></div>' +
-      '<div class="player-ring player-ring2"></div>' +
-      '<div class="player-bounce"><img src="' + PIN + '" width="48" height="48" alt="you are here" /></div>',
+    html: `<div class='player-ring'></div><div class='player-ring player-ring2'></div><div class='player-bounce'><img src='${PIN}' width='48' height='48' alt='you are here' /></div>`,
     iconSize: [48, 48],
     iconAnchor: [24, 45],
     popupAnchor: [0, -42],
@@ -171,16 +162,15 @@
   const player = L.marker([0, 0], { icon: playerIcon, zIndexOffset: 1000 });
   const accuracy = L.circle([0, 0], {
     radius: 0,
-    color: '#22c55e',
+    color: 'rgb(34, 197, 94)',
     weight: 2,
-    fillColor: '#22c55e',
+    fillColor: 'rgb(34, 197, 94)',
     fillOpacity: 0.08,
     interactive: false,
     className: 'accuracy-path',
   });
   const playerGroup = L.layerGroup([player, accuracy]).addTo(map);
 
-  /* ---------------- player placement ---------------- */
   let firstFix = true;
   let hasPlayer = false;
 
@@ -190,8 +180,7 @@
       accuracy.setLatLng(latlng).setRadius(acc);
     }
     player.bindPopup(
-      '<div class="pixel-popup">' + label +
-      '<span class="dim">' + latlng.lat.toFixed(4) + ' , ' + latlng.lng.toFixed(4) + '</span></div>',
+      `<div class='pixel-popup'>${label}<span class='dim'>${latlng.lat.toFixed(4)} , ${latlng.lng.toFixed(4)}</span></div>`,
       { closeButton: true, offset: [0, -6] }
     );
     if (firstFix || open) {
@@ -221,7 +210,6 @@
   }
   map.on('move', refreshHud);
 
-  /* ---------------- geolocation ---------------- */
   function locateMe() {
     if (!navigator.geolocation) {
       showToast('GEOLOCATION NOT SUPPORTED.\nCLICK THE MAP TO PLACE A MARKER.');
@@ -245,16 +233,11 @@
 
   els.btnLocate.addEventListener('click', locateMe);
 
-  /* click anywhere to drop a marker (great for testing) */
   map.on('click', (e) => {
     placePlayer(e.latlng, 0, 'MARKER', false, true);
-    showToast(
-      'MARKER @ ' + e.latlng.lat.toFixed(4) + ' , ' + e.latlng.lng.toFixed(4),
-      3200
-    );
+    showToast(`MARKER @ ${e.latlng.lat.toFixed(4)} , ${e.latlng.lng.toFixed(4)}`, 3200);
   });
 
-  /* ---------------- toast ---------------- */
   let toastTimer;
   function showToast(msg, ms) {
     els.toast.textContent = msg;
@@ -266,7 +249,6 @@
     els.toast.classList.add('hidden');
   }
 
-  /* ---------------- splash / ready ---------------- */
   let splashHidden = false;
   function hideSplash() {
     if (splashHidden) return;
@@ -277,7 +259,6 @@
   tiles.once('load', hideSplash);
   setTimeout(hideSplash, 8000);
 
-  /* ---------------- settings ---------------- */
   function applyTileSettings() {
     tiles.options.pixelScale = Number(els.scaleEl.value);
     tiles.options.posterize = Number(els.levelsEl.value);
@@ -294,7 +275,6 @@
   els.btnSettings.addEventListener('click', () => els.settings.classList.toggle('hidden'));
   els.btnCloseSettings.addEventListener('click', () => els.settings.classList.add('hidden'));
 
-  /* ---------------- boot ---------------- */
   refreshHud();
   locateMe();
 })();
