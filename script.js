@@ -366,10 +366,11 @@
     const lx = low.getContext('2d');
     lx.font = font;
     lx.textBaseline = 'top';
+    const textX = Math.round((lowW - textW) / 2);
     lx.fillStyle = 'rgba(0, 0, 0, .85)';
-    lx.fillText(name, padX + 1, padY + 1);
+    lx.fillText(name, textX + 1, padY + 1);
     lx.fillStyle = color;
-    lx.fillText(name, padX, padY);
+    lx.fillText(name, textX, padY);
     const pW = pointerH;
     lx.fillStyle = 'rgba(0, 0, 0, .85)';
     lx.fillRect(Math.floor((lowW - pW) / 2) + 1, boxH + 1, pW, pointerH);
