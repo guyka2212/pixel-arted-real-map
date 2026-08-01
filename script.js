@@ -275,11 +275,12 @@
   els.btnSettings.addEventListener('click', () => els.settings.classList.toggle('hidden'));
   els.btnCloseSettings.addEventListener('click', () => els.settings.classList.add('hidden'));
 
-  function placeRank(tags) {
-    if (tags.natural) {
-      const n = { peak: 2, mountain: 2, volcano: 2, hill: 3, cape: 3, bay: 3, island: 2, islet: 4 };
-      return n[tags.natural] === undefined ? 3 : n[tags.natural];
-    }
+  const PLACE_OK = ['city', 'town', 'municipality', 'village', 'borough', 'island', 'suburb', 'neighbourhood', 'quarter', 'square', 'locality', 'hamlet', 'farm', 'islet', 'isolated_dwelling'];
+  const NATURAL_OK = ['peak', 'mountain', 'volcano', 'hill', 'cape', 'bay', 'island', 'islet'];
+
+  function placeRankFor(value) {
+    const n = { peak: 2, mountain: 2, volcano: 2, hill: 3, cape: 3, bay: 3, island: 2, islet: 4 };
+    if (n[value] !== undefined) return n[value];
     const p = {
       city: 0,
       town: 1,
@@ -290,13 +291,18 @@
       suburb: 3,
       neighbourhood: 3,
       quarter: 3,
+      square: 3,
       locality: 4,
       hamlet: 4,
       farm: 4,
       islet: 4,
       isolated_dwelling: 4,
     };
-    return p[tags.place] === undefined ? 3 : p[tags.place];
+    return p[value] === undefined ? 3 : p[value];
+  }
+
+  function placeRank(tags) {
+    return placeRankFor(tags.natural || tags.place);
   }
 
   const OVERPASS_URLS = [
@@ -396,11 +402,24 @@
 
   let placesData = null;
   function redrawPlaces() {
-    if (placesData) renderPlaces(placesData.json, placesData.center);
+    if (placesData) placesData.render();
+  }
+
+  function renderPlaceItems(items, maxCount) {
+    items.sort((a, b) => (a.rank - b.rank) || (a.dist - b.dist));
+    if (placesLayer) placesLayer.clearLayers();
+    placesLayer = L.layerGroup().addTo(map);
+    const seen = new Set();
+    for (const item of items.slice(0, maxCount)) {
+      const key = item.rank + ':' + item.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      placesLayer.addLayer(addPlaceLabel(item.latlng, item.name, item.rank));
+    }
   }
 
   function renderPlaces(json, center) {
-    placesData = { json: json, center: center };
+    placesData = { render: () => renderPlaces(json, center) };
     const items = [];
     for (const el of json.elements || []) {
       if (!el.tags) continue;
@@ -413,30 +432,50 @@
       const rank = placeRank(el.tags);
       items.push({ name: name, rank: rank, dist: map.distance(center, latlng), latlng: latlng });
     }
-    items.sort((a, b) => (a.rank - b.rank) || (a.dist - b.dist));
-    if (placesLayer) placesLayer.clearLayers();
-    placesLayer = L.layerGroup().addTo(map);
-    const seen = new Set();
-    for (const item of items.slice(0, 40)) {
-      const key = item.rank + ':' + item.name;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      placesLayer.addLayer(addPlaceLabel(item.latlng, item.name, item.rank));
+    renderPlaceItems(items, 40);
+  }
+
+  function renderPhotonPlaces(json, center) {
+    placesData = { render: () => renderPhotonPlaces(json, center) };
+    const items = [];
+    for (const f of json.features || []) {
+      const props = f.properties || {};
+      const name = props.name;
+      if (!name) continue;
+      const value = props.osm_value;
+      if (props.osm_key === 'place' && PLACE_OK.indexOf(value) < 0) continue;
+      if (props.osm_key === 'natural' && NATURAL_OK.indexOf(value) < 0) continue;
+      if (props.osm_key !== 'place' && props.osm_key !== 'natural') continue;
+      const coords = f.geometry && f.geometry.coordinates;
+      if (!coords || coords.length < 2) continue;
+      const latlng = [coords[1], coords[0]];
+      const rank = placeRankFor(value);
+      items.push({ name: name, rank: rank, dist: map.distance(center, latlng), latlng: latlng });
     }
+    renderPlaceItems(items, 40);
   }
 
   function loadPlaces(center, zoom) {
     if (zoom < 4) return;
     if (placesAbort) placesAbort.abort();
     placesAbort = new AbortController();
+    const signal = placesAbort.signal;
     const radius = Math.round(Math.max(2000, Math.min(400000, 400000 / Math.pow(2, zoom - 4))));
+    let resolved = false;
+    const finish = (fn) => {
+      if (!signal.aborted && !resolved) {
+        resolved = true;
+        fn();
+      }
+    };
     const query = `[out:json][timeout:20];(node['place'](around:${radius},${center.lat},${center.lng});way['place'](around:${radius},${center.lat},${center.lng});node['natural'~'(peak|mountain|hill|volcano|cape|bay|island|islet)'](around:${radius},${center.lat},${center.lng}););out center tags;`;
-    const opts = { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: placesAbort.signal };
+    const opts = { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: signal };
     const targets = [OVERPASS_URLS[0], OVERPASS_URLS[0]].concat(OVERPASS_URLS.slice(1));
     const delay = (ms) => new Promise((r) => setTimeout(r, ms));
     const attempt = (i, tries) => {
+      if (signal.aborted) return;
       if (i >= targets.length) {
-        if (tries < 4 && !placesAbort.signal.aborted) {
+        if (tries < 4 && !signal.aborted) {
           delay(8000).then(() => attempt(0, tries + 1));
         }
         return;
@@ -447,15 +486,29 @@
           return res.json();
         })
         .then((json) => {
-          if (!placesAbort.signal.aborted) renderPlaces(json, center);
+          finish(() => renderPlaces(json, center));
         })
         .catch((err) => {
-          if (!placesAbort.signal.aborted && err.name !== 'AbortError') {
+          if (!signal.aborted && err.name !== 'AbortError') {
             delay(2000).then(() => attempt(i + 1, tries));
           }
         });
     };
     attempt(0, 0);
+
+    delay(2500).then(() => {
+      if (resolved || signal.aborted) return;
+      const url = `https://photon.komoot.io/reverse?lon=${center.lng}&lat=${center.lat}&limit=40&lang=en&layer=locality&layer=city&layer=district&layer=county&layer=state&layer=country&layer=other`;
+      fetchWithTimeout(url, { signal: signal }, 15000)
+        .then((res) => {
+          if (!res.ok) throw new Error('bad status');
+          return res.json();
+        })
+        .then((json) => {
+          finish(() => renderPhotonPlaces(json, center));
+        })
+        .catch(() => {});
+    });
   }
 
   function schedulePlaces() {
